@@ -48,6 +48,19 @@ impl Vector3D {
         }
     }
 
+    pub fn random_in_unit_disk<R: Rng + ?Sized>(rng: &mut R) -> Self {
+        loop {
+            let p = Self::new(
+                rng.random_range(-1.0..=1.0),
+                rng.random_range(-1.0..=1.0),
+                0.0,
+            );
+            if p.length_squared() < 1.0 {
+                return p;
+            }
+        }
+    }
+
     pub fn random_on_hemisphere<R: Rng + ?Sized>(rng: &mut R, normal: Self) -> Self {
         let on_unit_sphere = Self::random_unit(rng);
         if on_unit_sphere.dot(normal) > 0.0 {
@@ -133,6 +146,13 @@ impl Vector3D {
 
     pub fn reflect(self, rhs: Self) -> Self {
         self - rhs * 2.0 * self.dot(rhs)
+    }
+
+    pub fn refract(self, normal: Self, etai_over_etat: f64) -> Self {
+        let cos_theta = (-self).dot(normal).min(1.0);
+        let r_out_perp = (self + normal * cos_theta) * etai_over_etat;
+        let r_out_parallel = normal * -(1.0 - r_out_perp.length_squared()).abs().sqrt();
+        r_out_perp + r_out_parallel
     }
 }
 

@@ -7,6 +7,7 @@ use crate::{
     hittable::Hittable,
     interval::Interval,
     ray::Ray,
+    util::degrees_to_radians,
     vector3d::{Point, Vector3D},
 };
 
@@ -14,25 +15,44 @@ use crate::{
 pub struct Camera {
     image_width: usize,
     image_height: usize,
+    aspect_ratio: f64,
+    vertical_fov: f64,
+    focus_distance: f64,
+    defocus_angle: f64,
     max_depth: i32,
     samples_per_pixel: usize,
+    lookfrom: Point,
+    lookat: Point,
+    view_up: Vector3D,
     center: Point,
     pixel00_loc: Point,
     pixel_delta_u: Vector3D,
     pixel_delta_v: Vector3D,
+    defocus_disk_u: Vector3D,
+    defocus_disk_v: Vector3D,
 }
 
 impl Camera {
-    const DEFAULT_FOCAL_LENGTH: f64 = 1.0;
-    const DEFAULT_VIEWPORT_HEIGHT: f64 = 2.0;
+    const DEFAULT_DEFOCUS_ANGLE: f64 = 0.0;
+    const DEFAULT_FOCUS_DISTANCE: f64 = 1.0;
+    const DEFAULT_VERTICAL_FOV: f64 = 90.0;
 
     pub fn new(image_width: usize, aspect_ratio: f64) -> Self {
-        Self::with_viewport(
+        Self::from_fov(image_width, aspect_ratio, Self::DEFAULT_VERTICAL_FOV)
+    }
+
+    pub fn from_fov(image_width: usize, aspect_ratio: f64, vertical_fov: f64) -> Self {
+        Self::build(
             image_width,
             aspect_ratio,
-            Self::DEFAULT_VIEWPORT_HEIGHT,
-            Self::DEFAULT_FOCAL_LENGTH,
+            vertical_fov,
             Point::new(0.0, 0.0, 0.0),
+            Point::new(0.0, 0.0, -1.0),
+            Vector3D::new(0.0, 1.0, 0.0),
+            Self::DEFAULT_FOCUS_DISTANCE,
+            Self::DEFAULT_DEFOCUS_ANGLE,
+            1,
+            10,
         )
     }
 
@@ -48,28 +68,99 @@ impl Camera {
         assert!(viewport_height > 0.0, "viewport height must be positive");
         assert!(focal_length > 0.0, "focal length must be positive");
 
+        let vertical_fov = 2.0 * (viewport_height / (2.0 * focal_length)).atan().to_degrees();
+        let lookat = center - Vector3D::new(0.0, 0.0, focal_length);
+
+        Self::build(
+            image_width,
+            aspect_ratio,
+            vertical_fov,
+            center,
+            lookat,
+            Vector3D::new(0.0, 1.0, 0.0),
+            focal_length,
+            Self::DEFAULT_DEFOCUS_ANGLE,
+            1,
+            10,
+        )
+    }
+
+    fn build(
+        image_width: usize,
+        aspect_ratio: f64,
+        vertical_fov: f64,
+        lookfrom: Point,
+        lookat: Point,
+        view_up: Vector3D,
+        focus_distance: f64,
+        defocus_angle: f64,
+        samples_per_pixel: usize,
+        max_depth: i32,
+    ) -> Self {
+        assert!(image_width > 0, "image width must be positive");
+        assert!(aspect_ratio > 0.0, "aspect ratio must be positive");
+        assert!(
+            vertical_fov > 0.0 && vertical_fov < 180.0,
+            "vertical fov must be between 0 and 180 degrees"
+        );
+        assert!(focus_distance > 0.0, "focus distance must be positive");
+        assert!(
+            defocus_angle >= 0.0 && defocus_angle < 180.0,
+            "defocus angle must be between 0 and 180 degrees"
+        );
+        assert!(samples_per_pixel > 0, "samples per pixel must be positive");
+        assert!(max_depth > 0, "depth must be positive");
+
+        let view_direction = lookfrom - lookat;
+        assert!(
+            view_direction.length_squared() > 0.0,
+            "lookfrom and lookat must be different"
+        );
+
         let image_height = ((image_width as f64 / aspect_ratio) as usize).max(1);
+        let theta = degrees_to_radians(vertical_fov);
+        let viewport_height = 2.0 * focus_distance * (theta / 2.0).tan();
         let viewport_width = viewport_height * (image_width as f64 / image_height as f64);
 
-        let viewport_u = Vector3D::new(viewport_width, 0.0, 0.0);
-        let viewport_v = Vector3D::new(0.0, -viewport_height, 0.0);
+        let w = view_direction.unit();
+        let u = view_up.cross(w);
+        assert!(
+            u.length_squared() > 0.0,
+            "view up must not be parallel to the view direction"
+        );
+        let u = u.unit();
+        let v = w.cross(u);
+
+        let viewport_u = u * viewport_width;
+        let viewport_v = -v * viewport_height;
 
         let pixel_delta_u = viewport_u / image_width as f64;
         let pixel_delta_v = viewport_v / image_height as f64;
 
+        let center = lookfrom;
         let viewport_upper_left =
-            center - Vector3D::new(0.0, 0.0, focal_length) - viewport_u / 2.0 - viewport_v / 2.0;
+            center - (w * focus_distance) - viewport_u / 2.0 - viewport_v / 2.0;
         let pixel00_loc = viewport_upper_left + pixel_delta_u / 2.0 + pixel_delta_v / 2.0;
+        let defocus_radius = focus_distance * degrees_to_radians(defocus_angle / 2.0).tan();
 
         Self {
             image_width,
             image_height,
-            max_depth: 10,
-            samples_per_pixel: 1,
+            aspect_ratio,
+            vertical_fov,
+            focus_distance,
+            defocus_angle,
+            max_depth,
+            samples_per_pixel,
+            lookfrom,
+            lookat,
+            view_up,
             center,
             pixel00_loc,
             pixel_delta_u,
             pixel_delta_v,
+            defocus_disk_u: u * defocus_radius,
+            defocus_disk_v: v * defocus_radius,
         }
     }
 
@@ -85,6 +176,51 @@ impl Camera {
         self
     }
 
+    pub fn with_vertical_fov(self, vertical_fov: f64) -> Self {
+        Self::build(
+            self.image_width,
+            self.aspect_ratio,
+            vertical_fov,
+            self.lookfrom,
+            self.lookat,
+            self.view_up,
+            self.focus_distance,
+            self.defocus_angle,
+            self.samples_per_pixel,
+            self.max_depth,
+        )
+    }
+
+    pub fn with_view(self, lookfrom: Point, lookat: Point, view_up: Vector3D) -> Self {
+        Self::build(
+            self.image_width,
+            self.aspect_ratio,
+            self.vertical_fov,
+            lookfrom,
+            lookat,
+            view_up,
+            (lookfrom - lookat).length(),
+            self.defocus_angle,
+            self.samples_per_pixel,
+            self.max_depth,
+        )
+    }
+
+    pub fn with_defocus_blur(self, defocus_angle: f64, focus_distance: f64) -> Self {
+        Self::build(
+            self.image_width,
+            self.aspect_ratio,
+            self.vertical_fov,
+            self.lookfrom,
+            self.lookat,
+            self.view_up,
+            focus_distance,
+            defocus_angle,
+            self.samples_per_pixel,
+            self.max_depth,
+        )
+    }
+
     pub fn image_width(&self) -> usize {
         self.image_width
     }
@@ -95,6 +231,18 @@ impl Camera {
 
     pub fn samples_per_pixel(&self) -> usize {
         self.samples_per_pixel
+    }
+
+    pub fn vertical_fov(&self) -> f64 {
+        self.vertical_fov
+    }
+
+    pub fn defocus_angle(&self) -> f64 {
+        self.defocus_angle
+    }
+
+    pub fn focus_distance(&self) -> f64 {
+        self.focus_distance
     }
 
     pub fn ray_for_pixel(&self, i: usize, j: usize) -> Ray {
@@ -109,9 +257,19 @@ impl Camera {
         let pixel_sample = self.pixel00_loc
             + (self.pixel_delta_u * (i as f64 + rng.random_range(-0.5..0.5)))
             + (self.pixel_delta_v * (j as f64 + rng.random_range(-0.5..0.5)));
-        let ray_direction = pixel_sample - self.center;
+        let ray_origin = if self.defocus_angle <= 0.0 {
+            self.center
+        } else {
+            self.defocus_disk_sample(rng)
+        };
+        let ray_direction = pixel_sample - ray_origin;
 
-        Ray::new(self.center, ray_direction)
+        Ray::new(ray_origin, ray_direction)
+    }
+
+    fn defocus_disk_sample(&self, rng: &mut impl Rng) -> Point {
+        let p = Vector3D::random_in_unit_disk(rng);
+        self.center + self.defocus_disk_u * p.x() + self.defocus_disk_v * p.y()
     }
 
     pub fn render(&self, world: &impl Hittable, writer: &mut impl io::Write) -> io::Result<()> {
