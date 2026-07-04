@@ -152,8 +152,8 @@ fn ray_color(r: Ray, depth: i32, world: &impl Hittable, rng: &mut impl Rng) -> C
         return Color::default();
     }
 
-    if let Some(HitRecord { normal, p, .. }) = world.hit(r, Interval::new(0.0, f64::INFINITY)) {
-        let direction = Vector3D::random_on_hemisphere(rng, normal);
+    if let Some(HitRecord { normal, p, .. }) = world.hit(r, Interval::new(0.001, f64::INFINITY)) {
+        let direction = normal + Vector3D::random_unit(rng);
         return 0.5 * ray_color(Ray::new(p, direction), depth - 1, world, rng);
     }
 
