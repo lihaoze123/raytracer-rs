@@ -137,10 +137,19 @@ impl DivAssign<f64> for Color {
     }
 }
 
+fn linear_channel_to_gamma(linear_component: f64) -> f64 {
+    if linear_component > 0.0 {
+        linear_component.sqrt()
+    } else {
+        0.0
+    }
+}
+
 fn linear_channel_to_u8(value: f64) -> u8 {
     if !value.is_finite() {
         return 0;
     }
 
+    let value = linear_channel_to_gamma(value);
     (256.0 * Interval::new(0.0, 0.999).clamp(value)) as u8
 }
