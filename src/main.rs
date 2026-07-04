@@ -2,6 +2,7 @@ use log::info;
 
 mod color;
 mod hittable;
+mod interval;
 mod ray;
 mod sphere;
 mod util;
@@ -15,13 +16,14 @@ use std::{
 use crate::{
     color::Color,
     hittable::{HitRecord, Hittable, HittableList},
+    interval::Interval,
     ray::Ray,
     sphere::Sphere,
     vector3d::{Point, Vector3D},
 };
 
 fn ray_color(r: Ray, world: &HittableList) -> Color {
-    if let Some(HitRecord { normal, .. }) = world.hit(r, 0.0, f64::MAX) {
+    if let Some(HitRecord { normal, .. }) = world.hit(r, Interval::new(0.0, f64::INFINITY)) {
         return 0.5 * (Color::from(normal) + Color::new(1.0, 1.0, 1.0));
     }
 

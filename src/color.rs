@@ -2,7 +2,7 @@ use std::fmt::Write as _;
 use std::io;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign};
 
-use crate::vector3d::Vector3D;
+use crate::{interval::Interval, vector3d::Vector3D};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Color(Vector3D);
@@ -142,5 +142,5 @@ fn linear_channel_to_u8(value: f64) -> u8 {
         return 0;
     }
 
-    (256.0 * value.clamp(0.0, 0.999)) as u8
+    (256.0 * Interval::new(0.0, 0.999).clamp(value)) as u8
 }
