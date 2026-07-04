@@ -2,6 +2,7 @@ use log::info;
 
 mod color;
 mod vec3;
+mod ray;
 
 use std::io::{self, Write};
 
