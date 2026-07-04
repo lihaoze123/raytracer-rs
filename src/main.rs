@@ -1,7 +1,10 @@
 use log::info;
 
 mod color;
+mod hittable;
 mod ray;
+mod sphere;
+mod util;
 mod vector3d;
 
 use std::{
@@ -10,10 +13,18 @@ use std::{
 };
 
 use crate::{
-    color::Color, ray::Ray, vector3d::{Point, Vector3D},
+    color::Color,
+    hittable::{HitRecord, Hittable, HittableList},
+    ray::Ray,
+    sphere::Sphere,
+    vector3d::{Point, Vector3D},
 };
 
-fn ray_color(r: Ray) -> Color {
+fn ray_color(r: Ray, world: &HittableList) -> Color {
+    if let Some(HitRecord { normal, .. }) = world.hit(r, 0.0, f64::MAX) {
+        return 0.5 * (Color::from(normal) + Color::new(1.0, 1.0, 1.0));
+    }
+
     let unit_direction = r.direction().unit();
     let a = 0.5 * (unit_direction.y() + 1.0);
     Color::new(1.0, 1.0, 1.0) * (1.0 - a) + Color::new(0.5, 0.7, 1.0) * a
@@ -33,6 +44,11 @@ fn main() -> anyhow::Result<()> {
         let image_height = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
         if image_height < 1 { 1 } else { image_height }
     };
+
+    // World
+    let mut world = HittableList::new();
+    world.add(Box::new(Sphere::new(Point::new(0.0, 0.0, -1.0), 0.5)));
+    world.add(Box::new(Sphere::new(Point::new(0.0, -100.5, -1.0), 100.0)));
 
     // Camera
 
@@ -58,11 +74,12 @@ fn main() -> anyhow::Result<()> {
     for j in 0..IMAGE_HEIGHT {
         info!("Scanlines remaining: {}", IMAGE_HEIGHT - j);
         for i in 0..IMAGE_WIDTH {
-            let pixel_center = pixel00_loc + (pixel_delta_u * i as f64) + (pixel_delta_v * j as f64);
+            let pixel_center =
+                pixel00_loc + (pixel_delta_u * i as f64) + (pixel_delta_v * j as f64);
             let ray_direction = pixel_center - CAMERA_CENTER;
             let r = Ray::new(CAMERA_CENTER, ray_direction);
-            
-            let pixel_color = ray_color(r);
+
+            let pixel_color = ray_color(r, &world);
             pixel_color.write_ppm(&mut out)?;
         }
     }
