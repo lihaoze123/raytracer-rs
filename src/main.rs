@@ -10,7 +10,6 @@ mod util;
 mod vector3d;
 
 use std::{
-    fmt::Write as FmtWrite,
     fs::File,
     io::{BufWriter, Write},
 };
@@ -74,11 +73,11 @@ fn main() -> anyhow::Result<()> {
 
     // Render
 
-    writeln!(out, "P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT)?;
+    writeln!(out, "P6\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT)?;
     let rows: Vec<_> = (0..IMAGE_HEIGHT)
         .into_par_iter()
         .map(|j| {
-            let mut row = String::new();
+            let mut row = Vec::with_capacity(IMAGE_WIDTH as usize * 3);
             for i in 0..IMAGE_WIDTH {
                 let pixel_center =
                     pixel00_loc + (pixel_delta_u * i as f64) + (pixel_delta_v * j as f64);
@@ -86,15 +85,14 @@ fn main() -> anyhow::Result<()> {
                 let r = Ray::new(CAMERA_CENTER, ray_direction);
 
                 let pixel_color = ray_color(r, &world);
-                let [r, g, b] = pixel_color.to_rgb8();
-                writeln!(&mut row, "{r} {g} {b}").expect("writing to String cannot fail");
+                row.extend_from_slice(&pixel_color.to_rgb8());
             }
             row
         })
         .collect();
 
     for row in rows {
-        out.write_all(row.as_bytes())?;
+        out.write_all(&row)?;
     }
     info!("Done.");
 
