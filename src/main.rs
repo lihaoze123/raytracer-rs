@@ -15,15 +15,19 @@ fn main() -> anyhow::Result<()> {
     const ASPECT_RATIO: f64 = 16.0 / 9.0;
     const IMAGE_WIDTH: usize = 400;
     const SAMPLES_PER_PIXEL: usize = 100;
+    const MAX_DEPTH: i32 = 50;
 
     // World
+
     let mut world = HittableList::new();
     world.add(Sphere::new(Point::new(0.0, 0.0, -1.0), 0.5));
     world.add(Sphere::new(Point::new(0.0, -100.5, -1.0), 100.0));
 
     // Camera
 
-    let camera = Camera::new(IMAGE_WIDTH, ASPECT_RATIO).with_samples_per_pixel(SAMPLES_PER_PIXEL);
+    let camera = Camera::new(IMAGE_WIDTH, ASPECT_RATIO)
+        .with_samples_per_pixel(SAMPLES_PER_PIXEL)
+        .with_max_depth(MAX_DEPTH);
 
     // Render
 

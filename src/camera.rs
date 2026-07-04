@@ -14,6 +14,7 @@ use crate::{
 pub struct Camera {
     image_width: usize,
     image_height: usize,
+    max_depth: i32,
     samples_per_pixel: usize,
     center: Point,
     pixel00_loc: Point,
@@ -63,6 +64,7 @@ impl Camera {
         Self {
             image_width,
             image_height,
+            max_depth: 10,
             samples_per_pixel: 1,
             center,
             pixel00_loc,
@@ -74,6 +76,12 @@ impl Camera {
     pub fn with_samples_per_pixel(mut self, samples_per_pixel: usize) -> Self {
         assert!(samples_per_pixel > 0, "samples per pixel must be positive");
         self.samples_per_pixel = samples_per_pixel;
+        self
+    }
+
+    pub fn with_max_depth(mut self, max_depth: i32) -> Self {
+        assert!(max_depth > 0, "depth must be positive");
+        self.max_depth = max_depth;
         self
     }
 
@@ -116,13 +124,13 @@ impl Camera {
 
         let rows: Vec<_> = (0..self.image_height())
             .into_par_iter()
-            .map(|j| {
-                let mut rng = rand::rng();
+            .map_init(rand::rng, |rng, j| {
                 let mut row = Vec::with_capacity(self.image_width() * 3);
                 for i in 0..self.image_width() {
                     let mut pixel_color = Color::default();
                     for _ in 0..self.samples_per_pixel() {
-                        pixel_color += ray_color(self.sampled_ray_for_pixel(i, j, &mut rng), world);
+                        let ray = self.sampled_ray_for_pixel(i, j, rng);
+                        pixel_color += ray_color(ray, self.max_depth, world, rng);
                     }
                     pixel_color /= self.samples_per_pixel() as f64;
                     row.extend_from_slice(&pixel_color.to_rgb8());
@@ -139,9 +147,14 @@ impl Camera {
     }
 }
 
-fn ray_color(r: Ray, world: &impl Hittable) -> Color {
-    if let Some(HitRecord { normal, .. }) = world.hit(r, Interval::new(0.0, f64::INFINITY)) {
-        return 0.5 * (Color::from(normal) + Color::new(1.0, 1.0, 1.0));
+fn ray_color(r: Ray, depth: i32, world: &impl Hittable, rng: &mut impl Rng) -> Color {
+    if depth <= 0 {
+        return Color::default();
+    }
+
+    if let Some(HitRecord { normal, p, .. }) = world.hit(r, Interval::new(0.0, f64::INFINITY)) {
+        let direction = Vector3D::random_on_hemisphere(rng, normal);
+        return 0.5 * ray_color(Ray::new(p, direction), depth - 1, world, rng);
     }
 
     let unit_direction = r.direction().unit();

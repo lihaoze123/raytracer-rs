@@ -1,5 +1,7 @@
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 
+use rand::RngExt;
+
 use crate::vector3d::Axis::{X, Y, Z};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -22,6 +24,37 @@ impl Default for Vector3D {
 impl Vector3D {
     pub const fn new(x: f64, y: f64, z: f64) -> Self {
         Self { x, y, z }
+    }
+
+    pub fn random(rng: &mut impl rand::Rng) -> Self {
+        Self::new(rng.random(), rng.random(), rng.random())
+    }
+
+    pub fn random_range(rng: &mut impl rand::Rng, min: f64, max: f64) -> Self {
+        Self::new(
+            rng.random_range(min..=max),
+            rng.random_range(min..=max),
+            rng.random_range(min..=max),
+        )
+    }
+
+    pub fn random_unit(rng: &mut impl rand::Rng) -> Self {
+        loop {
+            let p = Self::random_range(rng, -1.0, 1.0);
+            let lensq = p.length_squared();
+            if 1e-160 < lensq && lensq <= 1.0 {
+                return p / lensq.sqrt();
+            }
+        }
+    }
+
+    pub fn random_on_hemisphere(rng: &mut impl rand::Rng, normal: Self) -> Self {
+        let on_unit_sphere = Self::random_unit(rng);
+        if on_unit_sphere.dot(normal) > 0.0 {
+            on_unit_sphere
+        } else {
+            -on_unit_sphere
+        }
     }
 
     pub fn x(&self) -> f64 {
