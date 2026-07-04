@@ -1,4 +1,5 @@
 use log::info;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 mod color;
 mod hittable;
@@ -9,6 +10,7 @@ mod util;
 mod vector3d;
 
 use std::{
+    fmt::Write as FmtWrite,
     fs::File,
     io::{BufWriter, Write},
 };
@@ -73,17 +75,26 @@ fn main() -> anyhow::Result<()> {
     // Render
 
     writeln!(out, "P3\n{} {}\n255", IMAGE_WIDTH, IMAGE_HEIGHT)?;
-    for j in 0..IMAGE_HEIGHT {
-        info!("Scanlines remaining: {}", IMAGE_HEIGHT - j);
-        for i in 0..IMAGE_WIDTH {
-            let pixel_center =
-                pixel00_loc + (pixel_delta_u * i as f64) + (pixel_delta_v * j as f64);
-            let ray_direction = pixel_center - CAMERA_CENTER;
-            let r = Ray::new(CAMERA_CENTER, ray_direction);
+    let rows: Vec<_> = (0..IMAGE_HEIGHT)
+        .into_par_iter()
+        .map(|j| {
+            let mut row = String::new();
+            for i in 0..IMAGE_WIDTH {
+                let pixel_center =
+                    pixel00_loc + (pixel_delta_u * i as f64) + (pixel_delta_v * j as f64);
+                let ray_direction = pixel_center - CAMERA_CENTER;
+                let r = Ray::new(CAMERA_CENTER, ray_direction);
 
-            let pixel_color = ray_color(r, &world);
-            pixel_color.write_ppm(&mut out)?;
-        }
+                let pixel_color = ray_color(r, &world);
+                let [r, g, b] = pixel_color.to_rgb8();
+                writeln!(&mut row, "{r} {g} {b}").expect("writing to String cannot fail");
+            }
+            row
+        })
+        .collect();
+
+    for row in rows {
+        out.write_all(row.as_bytes())?;
     }
     info!("Done.");
 
