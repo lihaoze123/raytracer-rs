@@ -1,20 +1,25 @@
 use crate::{
     hittable::{HitRecord, Hittable},
     interval::Interval,
+    material::SharedMaterial,
     ray::Ray,
     vector3d::Point,
 };
 
-#[derive(Debug, Default, Clone, Copy)]
 pub struct Sphere {
     center: Point,
     radius: f64,
+    material: SharedMaterial,
 }
 
 impl Sphere {
-    pub fn new(center: Point, radius: f64) -> Self {
+    pub fn new(center: Point, radius: f64, material: SharedMaterial) -> Self {
         let radius = radius.max(0.0);
-        Self { center, radius }
+        Self {
+            center,
+            radius,
+            material,
+        }
     }
 }
 
@@ -53,6 +58,7 @@ impl Hittable for Sphere {
         Some(HitRecord {
             p,
             normal,
+            material: self.material.clone(),
             t,
             front_face,
         })

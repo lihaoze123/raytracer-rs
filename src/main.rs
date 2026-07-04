@@ -1,8 +1,13 @@
 use log::info;
+use raytracer_rs::material::Metal;
 
+use std::sync::Arc;
 use std::{fs::File, io::BufWriter};
 
-use raytracer_rs::{camera::Camera, hittable::HittableList, sphere::Sphere, vector3d::Point};
+use raytracer_rs::{
+    camera::Camera, color::Color, hittable::HittableList, material::Lambertian, sphere::Sphere,
+    vector3d::Point,
+};
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();
@@ -20,8 +25,23 @@ fn main() -> anyhow::Result<()> {
     // World
 
     let mut world = HittableList::new();
-    world.add(Sphere::new(Point::new(0.0, 0.0, -1.0), 0.5));
-    world.add(Sphere::new(Point::new(0.0, -100.5, -1.0), 100.0));
+    let material_ground = Arc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0)));
+    let material_center = Arc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5)));
+    let material_left = Arc::new(Metal::new(Color::new(0.8, 0.8, 0.8)));
+    let material_right = Arc::new(Metal::new(Color::new(0.8, 0.6, 0.2)));
+
+    world.add(Sphere::new(
+        Point::new(0.0, -100.5, -1.0),
+        100.0,
+        material_ground,
+    ));
+    world.add(Sphere::new(
+        Point::new(0.0, 0.0, -1.2),
+        0.5,
+        material_center,
+    ));
+    world.add(Sphere::new(Point::new(-1.0, 0.0, -1.0), 0.5, material_left));
+    world.add(Sphere::new(Point::new(1.0, 0.0, -1.0), 0.5, material_right));
 
     // Camera
 

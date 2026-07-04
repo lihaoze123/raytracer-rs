@@ -4,7 +4,7 @@ use std::io;
 
 use crate::{
     color::Color,
-    hittable::{HitRecord, Hittable},
+    hittable::Hittable,
     interval::Interval,
     ray::Ray,
     vector3d::{Point, Vector3D},
@@ -152,9 +152,12 @@ fn ray_color(r: Ray, depth: i32, world: &impl Hittable, rng: &mut impl Rng) -> C
         return Color::default();
     }
 
-    if let Some(HitRecord { normal, p, .. }) = world.hit(r, Interval::new(0.001, f64::INFINITY)) {
-        let direction = normal + Vector3D::random_unit(rng);
-        return 0.5 * ray_color(Ray::new(p, direction), depth - 1, world, rng);
+    if let Some(rec) = world.hit(r, Interval::new(0.001, f64::INFINITY)) {
+        if let Some(scatter) = rec.material.scatter(r, &rec, rng) {
+            return scatter.attenuation * ray_color(scatter.scattered, depth - 1, world, rng);
+        }
+
+        return Color::default();
     }
 
     let unit_direction = r.direction().unit();

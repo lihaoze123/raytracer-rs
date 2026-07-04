@@ -1,19 +1,26 @@
 use crate::{
     interval::Interval,
+    material::SharedMaterial,
     ray::Ray,
     vector3d::{Point, Vector3D},
 };
 
-#[derive(Debug, Clone, Copy, Default)]
 pub struct HitRecord {
     pub p: Point,
     pub normal: Vector3D,
+    pub material: SharedMaterial,
     pub t: f64,
     pub front_face: bool,
 }
 
 pub struct HittableList {
     objects: Vec<Box<dyn Hittable>>,
+}
+
+impl Default for HittableList {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl HittableList {

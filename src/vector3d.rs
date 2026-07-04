@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 
-use rand::RngExt;
+use rand::{Rng, RngExt};
 
 use crate::vector3d::Axis::{X, Y, Z};
 
@@ -26,11 +26,11 @@ impl Vector3D {
         Self { x, y, z }
     }
 
-    pub fn random(rng: &mut impl rand::Rng) -> Self {
+    pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
         Self::new(rng.random(), rng.random(), rng.random())
     }
 
-    pub fn random_range(rng: &mut impl rand::Rng, min: f64, max: f64) -> Self {
+    pub fn random_range<R: Rng + ?Sized>(rng: &mut R, min: f64, max: f64) -> Self {
         Self::new(
             rng.random_range(min..=max),
             rng.random_range(min..=max),
@@ -38,7 +38,7 @@ impl Vector3D {
         )
     }
 
-    pub fn random_unit(rng: &mut impl rand::Rng) -> Self {
+    pub fn random_unit<R: Rng + ?Sized>(rng: &mut R) -> Self {
         loop {
             let p = Self::random_range(rng, -1.0, 1.0);
             let lensq = p.length_squared();
@@ -48,7 +48,7 @@ impl Vector3D {
         }
     }
 
-    pub fn random_on_hemisphere(rng: &mut impl rand::Rng, normal: Self) -> Self {
+    pub fn random_on_hemisphere<R: Rng + ?Sized>(rng: &mut R, normal: Self) -> Self {
         let on_unit_sphere = Self::random_unit(rng);
         if on_unit_sphere.dot(normal) > 0.0 {
             on_unit_sphere
@@ -113,6 +113,12 @@ impl Vector3D {
         self / self.length()
     }
 
+    pub fn near_zero(self) -> bool {
+        const EPSILON: f64 = 1e-8;
+
+        self.x.abs() < EPSILON && self.y.abs() < EPSILON && self.z.abs() < EPSILON
+    }
+
     pub fn dot(self, rhs: Self) -> f64 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
     }
@@ -123,6 +129,10 @@ impl Vector3D {
             self.z * rhs.x - self.x * rhs.z,
             self.x * rhs.y - self.y * rhs.x,
         )
+    }
+
+    pub fn reflect(self, rhs: Self) -> Self {
+        self - rhs * 2.0 * self.dot(rhs)
     }
 }
 
