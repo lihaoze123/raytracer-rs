@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
 
-use crate::vec3::Axis::{X, Y, Z};
+use crate::vector3d::Axis::{X, Y, Z};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vector3D {
@@ -20,7 +20,7 @@ impl Default for Vector3D {
 }
 
 impl Vector3D {
-    pub fn new(x: f64, y: f64, z: f64) -> Self {
+    pub const fn new(x: f64, y: f64, z: f64) -> Self {
         Self { x, y, z }
     }
 
@@ -193,4 +193,11 @@ pub enum Axis {
     X,
     Y,
     Z,
+}
+
+#[macro_export]
+macro_rules! vec3 {
+    ($x:expr, $y:expr, $z:expr) => {
+        $crate::vector3d::Vector3D::new($x, $y, $z)
+    };
 }

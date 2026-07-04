@@ -2,7 +2,7 @@ use std::fmt::Write as _;
 use std::io;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign};
 
-use crate::vec3::Vector3D;
+use crate::vector3d::Vector3D;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Color(Vector3D);
